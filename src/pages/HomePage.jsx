@@ -1,29 +1,20 @@
-import React, { useEffect } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import {
-  fetchCharacters,
-  selectAllCharacters,
-  selectCharacterStatus,
-  selectCharacterError,
-  selectCharacterFilters,
-  selectCharacterInfo,
-} from '../features/characters/charactersSlice';
+import React from 'react';
+import { useSelector } from 'react-redux';
+import { selectCharacterFilters } from '../features/characters/charactersSlice';
+import { useTanStackCharacters } from '../services/tanstackApi';
 import FilterBar from '../components/FilterBar';
 import CharacterCard from '../components/CharacterCard';
 import Pagination from '../components/Pagination';
-import { Loader2, AlertCircle, Compass, Zap } from 'lucide-react';
+import { Loader2, AlertCircle, Compass, Zap, Flame, RefreshCw } from 'lucide-react';
 
 export default function HomePage() {
-  const dispatch = useDispatch();
-  const characters = useSelector(selectAllCharacters);
-  const status = useSelector(selectCharacterStatus);
-  const error = useSelector(selectCharacterError);
   const filters = useSelector(selectCharacterFilters);
-  const info = useSelector(selectCharacterInfo);
 
-  useEffect(() => {
-    dispatch(fetchCharacters(filters));
-  }, [dispatch, filters.name, filters.status, filters.gender, filters.page]);
+  // TanStack Query custom hook for server-state fetching & caching
+  const { data, isLoading, isError, error, isFetching, refetch } = useTanStackCharacters(filters);
+
+  const characters = data?.results || [];
+  const info = data?.info || { pages: 1, count: 0 };
 
   return (
     <div className="page-container fade-in">
@@ -31,15 +22,15 @@ export default function HomePage() {
       <section className="hero-section">
         <div className="hero-content">
           <div className="hero-tag">
-            <Zap size={14} />
-            <span>Page 1 of 2: Multiverse Explorer</span>
+            <Flame size={14} className="accent-icon" />
+            <span>Page 1 of 2: TanStack Query + Redux Explorer</span>
           </div>
           <h1 className="hero-title">
             OpenSource API Explorer <br />
-            <span className="gradient-text">Powered by Redux Store</span>
+            <span className="gradient-text">Powered by TanStack Query & Redux</span>
           </h1>
           <p className="hero-description">
-            Fetch multiverse characters from the public Rick & Morty REST API. All search queries, status filters, and pagination are handled via Redux Async Thunks, custom middleware logging, and immutable state.
+            Server state, automatic caching (5-min <code>staleTime</code>), and background refetching are managed by <strong>TanStack Query</strong>. UI client state, filters, and bookmarks are managed by <strong>Redux Store</strong>.
           </p>
         </div>
       </section>
@@ -48,25 +39,60 @@ export default function HomePage() {
       <section className="main-section max-w">
         <FilterBar />
 
+        {/* TanStack Query Live Caching Badge */}
+        <div className="tanstack-cache-bar" style={{
+          display: 'flex',
+          alignItems: 'center',
+          justify: 'space-between',
+          background: 'rgba(0, 240, 255, 0.05)',
+          border: '1px solid rgba(0, 240, 255, 0.2)',
+          padding: '0.65rem 1rem',
+          borderRadius: '12px',
+          marginBottom: '1.5rem',
+          fontSize: '0.85rem'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#00f0ff' }}>
+            <Flame size={16} />
+            <span><strong>TanStack Query Server Cache:</strong> {isFetching ? 'Syncing with OpenSource API...' : 'Fresh Data (Cached in Memory)'}</span>
+          </div>
+          <button
+            onClick={() => refetch()}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: '#fff',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.35rem',
+              fontWeight: 600,
+              fontSize: '0.8rem'
+            }}
+          >
+            <RefreshCw size={14} className={isFetching ? 'spinner' : ''} />
+            <span>Force Refetch</span>
+          </button>
+        </div>
+
         {/* Status Handling */}
-        {status === 'loading' && (
+        {isLoading && (
           <div className="loading-container">
             <Loader2 size={48} className="spinner accent-color" />
-            <p>Dispatching <code>fetchCharacters.pending</code> to Redux Store...</p>
+            <p>Fetching & Caching Multiverse Characters via TanStack Query...</p>
           </div>
         )}
 
-        {status === 'failed' && (
+        {isError && (
           <div className="error-card">
             <AlertCircle size={32} />
             <div>
-              <h4>Error Fetching API Data</h4>
-              <p>{error}</p>
+              <h4>Error Loading API Data</h4>
+              <p>{error?.message || 'Failed to fetch characters from server'}</p>
             </div>
           </div>
         )}
 
-        {status === 'succeeded' && characters.length === 0 && (
+        {!isLoading && !isError && characters.length === 0 && (
           <div className="empty-state">
             <Compass size={48} className="muted-icon" />
             <h3>No Characters Found</h3>
@@ -74,7 +100,7 @@ export default function HomePage() {
           </div>
         )}
 
-        {status === 'succeeded' && characters.length > 0 && (
+        {!isLoading && !isError && characters.length > 0 && (
           <>
             <div className="results-meta">
               <span>Showing {characters.length} characters on page {filters.page} (Total: {info.count})</span>
@@ -86,7 +112,7 @@ export default function HomePage() {
               ))}
             </div>
 
-            <Pagination />
+            <Pagination totalPages={info.pages} count={info.count} />
           </>
         )}
       </section>

@@ -1,13 +1,7 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
-import {
-  fetchCharacterById,
-  selectSelectedCharacter,
-  selectSelectedEpisodes,
-  selectDetailStatus,
-  clearSelectedCharacter,
-} from '../features/characters/charactersSlice';
+import { useTanStackCharacterDetail } from '../services/tanstackApi';
 import { toggleFavorite, selectIsFavorite } from '../features/favorites/favoritesSlice';
 import {
   ArrowLeft,
@@ -17,28 +11,21 @@ import {
   Tv,
   Film,
   Globe,
-  Info,
-  Layers,
   Database,
+  Flame,
+  AlertCircle,
 } from 'lucide-react';
 
 export default function DetailPage() {
   const { id } = useParams();
   const dispatch = useDispatch();
 
-  const character = useSelector(selectSelectedCharacter);
-  const episodes = useSelector(selectSelectedEpisodes);
-  const detailStatus = useSelector(selectDetailStatus);
+  // TanStack Query custom hook for server-state character detail fetching & caching
+  const { data, isLoading, isError, error } = useTanStackCharacterDetail(id);
   const isFav = useSelector(selectIsFavorite(Number(id)));
 
-  useEffect(() => {
-    if (id) {
-      dispatch(fetchCharacterById(id));
-    }
-    return () => {
-      dispatch(clearSelectedCharacter());
-    };
-  }, [dispatch, id]);
+  const character = data?.character;
+  const episodes = data?.episodes || [];
 
   const handleToggleFav = () => {
     if (character) {
@@ -53,17 +40,27 @@ export default function DetailPage() {
           <ArrowLeft size={18} />
           <span>Back to Explorer</span>
         </Link>
-        <span className="page-badge">Page 2 of 2: Character Details</span>
+        <span className="page-badge">Page 2 of 2: Character Details (TanStack Cached)</span>
       </div>
 
-      {detailStatus === 'loading' && (
+      {isLoading && (
         <div className="loading-container">
           <Loader2 size={48} className="spinner accent-color" />
-          <p>Fetching full character metadata and episode history via Redux Thunk...</p>
+          <p>Fetching full character metadata and episode history via TanStack Query...</p>
         </div>
       )}
 
-      {detailStatus === 'succeeded' && character && (
+      {isError && (
+        <div className="error-card">
+          <AlertCircle size={32} />
+          <div>
+            <h4>Error Loading Character Details</h4>
+            <p>{error?.message || 'Failed to fetch details'}</p>
+          </div>
+        </div>
+      )}
+
+      {!isLoading && !isError && character && (
         <div className="detail-layout">
           {/* Main Hero Card */}
           <div className="detail-card">
@@ -79,7 +76,7 @@ export default function DetailPage() {
                   className={`vault-toggle-btn ${isFav ? 'active' : ''}`}
                 >
                   <Heart size={18} fill={isFav ? '#ff4757' : 'none'} color={isFav ? '#ff4757' : '#ffffff'} />
-                  <span>{isFav ? 'Saved in Vault' : 'Save to Vault'}</span>
+                  <span>{isFav ? 'Saved in Redux Vault' : 'Save to Redux Vault'}</span>
                 </button>
               </div>
 
@@ -123,7 +120,7 @@ export default function DetailPage() {
                   <div className="stat-box">
                     <Calendar size={18} className="accent-icon" />
                     <div>
-                      <span className="stat-label">Database Record Created</span>
+                      <span className="stat-label">Database Record</span>
                       <span className="stat-value">{new Date(character.created).toLocaleDateString()}</span>
                     </div>
                   </div>
@@ -151,21 +148,22 @@ export default function DetailPage() {
               </div>
             )}
 
-            {/* Redux State Inspector Box for this character */}
+            {/* TanStack + Redux State Inspector Box */}
             <div className="redux-explain-box">
               <div className="explain-header">
-                <Database size={18} className="accent-icon" />
-                <h4>Redux Store Slice Snapshot for `selectedCharacter`</h4>
+                <Flame size={18} className="accent-icon" />
+                <h4>TanStack Query Cache Snapshot for `['characterDetail', '{character.id}']`</h4>
               </div>
               <pre className="json-code">
                 {JSON.stringify(
                   {
+                    queryKey: ['characterDetail', String(character.id)],
+                    cacheStatus: 'Fresh (Cached in Memory)',
                     id: character.id,
                     name: character.name,
                     status: character.status,
                     species: character.species,
-                    isFavorite: isFav,
-                    episodesCount: character.episode.length,
+                    isSavedInReduxVault: isFav,
                   },
                   null,
                   2

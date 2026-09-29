@@ -2,18 +2,15 @@ import React from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import {
   setPage,
-  selectCharacterInfo,
   selectCharacterFilters,
 } from '../features/characters/charactersSlice';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
-export default function Pagination() {
+export default function Pagination({ totalPages = 1, count = 0 }) {
   const dispatch = useDispatch();
-  const info = useSelector(selectCharacterInfo);
   const filters = useSelector(selectCharacterFilters);
 
   const currentPage = filters.page || 1;
-  const totalPages = info.pages || 1;
 
   if (totalPages <= 1) return null;
 
@@ -30,7 +27,7 @@ export default function Pagination() {
 
       <div className="pagination-indicator">
         Page <span className="highlight">{currentPage}</span> of{' '}
-        <span className="highlight">{totalPages}</span> ({info.count} Total Records)
+        <span className="highlight">{totalPages}</span> ({count} Total Records)
       </div>
 
       <button
