@@ -7,7 +7,7 @@ import FavoritesPage from './pages/FavoritesPage';
 import ReduxStateInspector from './components/ReduxStateInspector';
 
 export default function App() {
-  const [showInspector, setShowInspector] = useState(false);
+  const [showInspector, setShowInspector] = useState(true);
 
   return (
     <div className="app-shell">
