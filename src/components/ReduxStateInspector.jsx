@@ -2,16 +2,49 @@ import React, { useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { useQueryClient } from '@tanstack/react-query';
 import { selectLogs, clearLogs } from '../features/logs/logsSlice';
-import { X, Trash2, Cpu, Database, Activity, Workflow, Server, RefreshCw, Zap, Flame } from 'lucide-react';
+import { getCachedDataByKey, setCachedDataByKey, invalidateQueriesByKey } from '../services/tanstackApi';
+import { X, Trash2, Cpu, Database, Activity, Workflow, Server, RefreshCw, Flame, Edit3, Eye } from 'lucide-react';
 
 export default function ReduxStateInspector({ isOpen, onClose }) {
   const [activeTab, setActiveTab] = useState('diagram'); // 'diagram' | 'logs' | 'state' | 'tanstack'
+  const [inspectedKeyData, setInspectedKeyData] = useState(null);
+  const [selectedKeyText, setSelectedKeyText] = useState('');
+
   const logs = useSelector(selectLogs);
   const fullState = useSelector((state) => state);
   const dispatch = useDispatch();
   const queryClient = useQueryClient();
 
   const queryCache = queryClient.getQueryCache().getAll();
+
+  const handleGetQueryData = (queryKey) => {
+    const data = getCachedDataByKey(queryClient, queryKey);
+    setSelectedKeyText(JSON.stringify(queryKey));
+    setInspectedKeyData(data);
+  };
+
+  const handleSetQueryData = (queryKey) => {
+    // Example: Manually update cache via setQueryData(queryKey, updater)
+    setCachedDataByKey(queryClient, queryKey, (oldData) => {
+      if (!oldData) return oldData;
+      if (oldData.results) {
+        return {
+          ...oldData,
+          results: oldData.results.map((item, idx) =>
+            idx === 0 ? { ...item, name: `${item.name} (Updated via setQueryData)` } : item
+          ),
+        };
+      }
+      return oldData;
+    });
+
+    // Refresh inspected data view
+    handleGetQueryData(queryKey);
+  };
+
+  const handleInvalidateQuery = (queryKey) => {
+    invalidateQueriesByKey(queryClient, queryKey);
+  };
 
   if (!isOpen) return null;
 
@@ -26,8 +59,8 @@ export default function ReduxStateInspector({ isOpen, onClose }) {
           <div className="header-brand">
             <Cpu className="accent-icon animate-pulse" size={22} />
             <div>
-              <h3>Redux & TanStack Query State Inspector</h3>
-              <p className="subtitle">Real-time Redux Store, Middleware Logs & TanStack Query Cache</p>
+              <h3>Redux & TanStack Query Inspector</h3>
+              <p className="subtitle">Real-time Redux Store, Middleware Logs & TanStack Query Key Methods</p>
             </div>
           </div>
 
@@ -52,7 +85,7 @@ export default function ReduxStateInspector({ isOpen, onClose }) {
                 onClick={() => setActiveTab('tanstack')}
               >
                 <Flame size={15} />
-                <span>TanStack Cache ({queryCache.length})</span>
+                <span>TanStack Query Keys ({queryCache.length})</span>
               </button>
               <button
                 className={`tab-btn ${activeTab === 'state' ? 'active' : ''}`}
@@ -74,66 +107,66 @@ export default function ReduxStateInspector({ isOpen, onClose }) {
           {activeTab === 'diagram' && (
             <div className="diagram-container">
               <div className="diagram-card">
-                <h4>Combined Architecture: Redux Store + TanStack Query Cache</h4>
+                <h4>TanStack Query Key Methods: `getQueryData` & `setQueryData`</h4>
                 <div className="flow-diagram">
                   <div className="node store-node">
                     <Server size={20} />
-                    <span className="node-title">REDUX STORE</span>
-                    <span className="node-desc">Client State & Vault</span>
+                    <span className="node-title">QUERY KEY</span>
+                    <span className="node-desc">['characters', filters]</span>
                   </div>
 
                   <div className="flow-arrow">➔</div>
 
                   <div className="node middleware-node">
-                    <Activity size={20} />
-                    <span className="node-title">MIDDLEWARE</span>
-                    <span className="node-desc">Logger & Persistence</span>
+                    <Eye size={20} />
+                    <span className="node-title">getQueryData()</span>
+                    <span className="node-desc">Read Cached State</span>
                   </div>
 
                   <div className="flow-arrow">➔</div>
 
                   <div className="node reducer-node">
-                    <Flame size={20} />
-                    <span className="node-title">TANSTACK QUERY</span>
-                    <span className="node-desc">Server Cache & Refetch</span>
+                    <Edit3 size={20} />
+                    <span className="node-title">setQueryData()</span>
+                    <span className="node-desc">Write/Mutate Cache</span>
                   </div>
 
                   <div className="flow-arrow">➔</div>
 
                   <div className="node state-node">
-                    <Database size={20} />
-                    <span className="node-title">IMMUTABLE UI</span>
-                    <span className="node-desc">Synchronized Pages</span>
+                    <RefreshCw size={20} />
+                    <span className="node-title">invalidateQueries()</span>
+                    <span className="node-desc">Force Background Sync</span>
                   </div>
                 </div>
               </div>
 
               <div className="components-grid">
                 <div className="component-box">
-                  <h5>1. Redux Store (`store.js`)</h5>
+                  <h5>1. `queryClient.getQueryData(queryKey)`</h5>
                   <p>
-                    Manages UI slice states, user bookmarks, filter controls, and custom middleware dispatches.
+                    Reads cached data synchronously from TanStack Query memory without making an HTTP request.
                   </p>
                 </div>
 
                 <div className="component-box">
-                  <h5>2. TanStack Query (`queryClient.js`)</h5>
+                  <h5>2. `queryClient.setQueryData(queryKey, updater)`</h5>
                   <p>
-                    Manages server-state caching (5-min <code>staleTime</code>), automatic refetching, background data sync, and instant cache retrieval.
+                    Synchronously updates the cached data for a specific query key, instantly updating UI components.
                   </p>
                 </div>
 
                 <div className="component-box">
-                  <h5>3. Custom Middleware</h5>
+                  <h5>3. `queryClient.invalidateQueries({ queryKey })`</h5>
                   <p>
-                    Intercepts actions to format colored console logs, sync favorites to <code>localStorage</code>, and calculate action latency.
+                    Marks query as stale and triggers immediate background refetching from the API server.
                   </p>
                 </div>
 
                 <div className="component-box">
-                  <h5>4. React Router (Pages 1 & 2)</h5>
+                  <h5>4. Redux Store Integration</h5>
                   <p>
-                    Pages consume both Redux selectors (`useSelector`) and TanStack Query hooks (`useQuery`) seamlessly.
+                    Redux manages client slice state (filters, bookmarks, logs), while TanStack manages server query cache keys!
                   </p>
                 </div>
               </div>
@@ -143,7 +176,7 @@ export default function ReduxStateInspector({ isOpen, onClose }) {
           {activeTab === 'tanstack' && (
             <div className="state-container">
               <div className="logs-toolbar">
-                <span>Active TanStack Query Cache Items ({queryCache.length}):</span>
+                <span>Active TanStack Query Keys in Memory ({queryCache.length}):</span>
                 <button
                   onClick={() => queryClient.refetchQueries()}
                   className="clear-logs-btn"
@@ -156,21 +189,54 @@ export default function ReduxStateInspector({ isOpen, onClose }) {
               <div className="logs-stream">
                 {queryCache.length === 0 ? (
                   <div className="empty-logs">
-                    No TanStack queries executed yet. Browse pages to see queries automatically cached in memory!
+                    No TanStack query keys active yet. Browse pages to see queries cached by key!
                   </div>
                 ) : (
                   queryCache.map((query) => (
-                    <div key={query.queryHash} className="log-row" style={{ gridTemplateColumns: '120px 220px 140px 1fr' }}>
-                      <span className="log-time">Status: {query.state.status}</span>
+                    <div key={query.queryHash} className="log-row" style={{ gridTemplateColumns: '180px 180px 1fr' }}>
                       <span className="log-type">Key: {JSON.stringify(query.queryKey)}</span>
-                      <span className="log-duration">Updated: {new Date(query.state.dataUpdatedAt).toLocaleTimeString()}</span>
-                      <span className="log-payload">
-                        <span className="payload-label">Stale:</span> {query.isStale() ? 'Yes' : 'Fresh (Cached)'}
-                      </span>
+                      <span className="log-duration">Status: {query.state.status} ({query.isStale() ? 'Stale' : 'Fresh'})</span>
+                      <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'flex-end' }}>
+                        <button
+                          onClick={() => handleGetQueryData(query.queryKey)}
+                          className="clear-logs-btn"
+                          title="getQueryData(queryKey)"
+                        >
+                          <Eye size={12} />
+                          <span>getQueryData</span>
+                        </button>
+                        <button
+                          onClick={() => handleSetQueryData(query.queryKey)}
+                          className="clear-logs-btn"
+                          style={{ color: '#00f0ff', borderColor: '#00f0ff' }}
+                          title="setQueryData(queryKey, updater)"
+                        >
+                          <Edit3 size={12} />
+                          <span>setQueryData</span>
+                        </button>
+                        <button
+                          onClick={() => handleInvalidateQuery(query.queryKey)}
+                          className="clear-logs-btn"
+                          style={{ color: '#7000ff', borderColor: '#7000ff' }}
+                          title="invalidateQueries(queryKey)"
+                        >
+                          <RefreshCw size={12} />
+                          <span>Invalidate</span>
+                        </button>
+                      </div>
                     </div>
                   ))
                 )}
               </div>
+
+              {selectedKeyText && (
+                <div style={{ marginTop: '1.5rem' }}>
+                  <span className="meta-label">Inspected `getQueryData({selectedKeyText})`:</span>
+                  <pre className="state-json-view" style={{ maxHeight: '200px', marginTop: '0.5rem' }}>
+                    {JSON.stringify(inspectedKeyData, null, 2)}
+                  </pre>
+                </div>
+              )}
             </div>
           )}
 
