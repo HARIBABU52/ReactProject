@@ -19,4 +19,13 @@ export const queryClient = new QueryClient({
   },
 });
 
+// Attach queryClient to window object for instant browser console debugging
+if (typeof window !== 'undefined') {
+  window.queryClient = queryClient;
+  console.log(
+    '%c 🔥 TanStack QueryClient attached to window.queryClient! Try typing queryClient.getQueryCache() in console.',
+    'color: #ff007f; font-weight: bold; font-size: 13px;'
+  );
+}
+
 export default queryClient;
