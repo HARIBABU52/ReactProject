@@ -11,7 +11,18 @@ export default function ReduxStateInspector({ isOpen, onClose }) {
   const [selectedKeyText, setSelectedKeyText] = useState('');
 
   const logs = useSelector(selectLogs);
-  const fullState = useSelector((state) => state);
+  
+  // Select specific slices to prevent Redux root state selector re-render warning
+  const charactersState = useSelector((state) => state.characters);
+  const favoritesState = useSelector((state) => state.favorites);
+  const logsState = useSelector((state) => state.logs);
+
+  const fullState = {
+    characters: charactersState,
+    favorites: favoritesState,
+    logs: logsState,
+  };
+
   const dispatch = useDispatch();
   const queryClient = useQueryClient();
 
@@ -143,21 +154,21 @@ export default function ReduxStateInspector({ isOpen, onClose }) {
 
               <div className="components-grid">
                 <div className="component-box">
-                  <h5>1. `queryClient.getQueryData(queryKey)`</h5>
+                  <h5>1. queryClient.getQueryData(queryKey)</h5>
                   <p>
                     Reads cached data synchronously from TanStack Query memory without making an HTTP request.
                   </p>
                 </div>
 
                 <div className="component-box">
-                  <h5>2. `queryClient.setQueryData(queryKey, updater)`</h5>
+                  <h5>2. queryClient.setQueryData(queryKey, updater)</h5>
                   <p>
                     Synchronously updates the cached data for a specific query key, instantly updating UI components.
                   </p>
                 </div>
 
                 <div className="component-box">
-                  <h5>3. `queryClient.invalidateQueries({ queryKey })`</h5>
+                  <h5>3. queryClient.invalidateQueries(options)</h5>
                   <p>
                     Marks query as stale and triggers immediate background refetching from the API server.
                   </p>
